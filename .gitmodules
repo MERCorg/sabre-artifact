@@ -1,0 +1,9 @@
+[submodule "merc"]
+	path = merc
+	url = https://github.com/MERCorg/merc
+[submodule "mCRL2"]
+	path = mCRL2
+	url = https://github.com/mCRL2org/mCRL2
+[submodule "MERCpy"]
+	path = MERCpy
+	url = https://github.com/MERCorg/MERCpy
