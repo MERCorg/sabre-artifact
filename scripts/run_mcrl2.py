@@ -13,7 +13,7 @@ from statistics import mean
 
 # make parent directory importable so we can import MERCpy as a module
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from MERCpy import run_process
+from MERCpy import RunProcess, MercLogger
 
 
 class Rewriter:
@@ -24,9 +24,9 @@ class Rewriter:
 TIME_REGEX = re.compile(r"rewriting: ([0-9]+) milliseconds.")
 
 
-def benchmark(mcrl2_path: Path, rewriter: str, rec_dir: Path, output_dir: Path) -> None:
-    cwd = Path.cwd()
-
+def benchmark(
+    logger: MercLogger, mcrl2_path: Path, rewriter: str, rec_dir: Path, output_dir: Path
+) -> None:
     if rewriter not in (Rewriter.JITTY, Rewriter.JITTYC):
         raise ValueError("Invalid rewriter")
 
@@ -35,30 +35,33 @@ def benchmark(mcrl2_path: Path, rewriter: str, rec_dir: Path, output_dir: Path) 
         raise RuntimeError("Cannot find mcrl2rewrite")
 
     with open(
-        os.path.join(output_dir, f"mcrl2_{rewriter}_results.json"), "w", encoding="utf-8"
+        os.path.join(output_dir, f"mcrl2_{rewriter}_results.json"),
+        "w",
+        encoding="utf-8",
     ) as result_file:
         for file in rec_dir.glob("*.dataspec"):
             expressions = file.with_suffix(".expressions")
 
-            print(f"Benchmarking {file}")
-
-            results = {"experiment": os.path.basename(file), "rewriter": rewriter, "timings": []}
+            logger.info(f"Benchmarking {file}")
+            results = {
+                "experiment": os.path.basename(file),
+                "rewriter": rewriter,
+                "timings": [],
+            }
 
             for _ in range(5):
                 try:
-                    proc = subprocess.run(
-                        [mcrl2rewrite_bin, "--timings", file, expressions],
-                        capture_output=True,
-                        text=True,
-                        timeout=600,
-                        check=True,
+                    proc = RunProcess(
+                        mcrl2rewrite_bin, ["-v", "--timings", str(file), str(expressions)], max_time=600
                     )
                 except Exception as e:
-                    print(f"Benchmark {file} timed out or crashed")
+                    logger.error(f"Benchmark {file} timed out or crashed: {e}")
                     break
 
                 output_lines = proc.stdout.splitlines() + proc.stderr.splitlines()
                 for line in output_lines:
+                    logger.info(line)
+
                     m = TIME_REGEX.search(line)
                     if m:
                         ms = float(m.group(1))
@@ -83,4 +86,6 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    benchmark(args.mcrl2_path, args.rewriter, args.rec_path, args.output_dir)
+    logger = MercLogger(args.output_dir / f"mcrl2_benchmark_{args.rewriter}.log")
+
+    benchmark(logger, args.mcrl2_path, args.rewriter, args.rec_path, args.output_dir)
