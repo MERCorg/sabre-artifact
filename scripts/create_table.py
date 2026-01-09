@@ -1,54 +1,70 @@
 import argparse
-from email import parser
 import json
-from statistics import mean
+import os
+
+from email import parser
 
 def average(values):
-    return mean(values) if values else 0.0
+    return sum(values) / len(values) if values else None
 
-def print_float(value: float) -> str:
-    return f"{value:.1f}"
+def print_float(value: float|None) -> str:
+    return f"{value / 1000.0:.1f}" if value is not None else "-"
+
+def read_results(directory: str) -> dict[str, dict[str, float]]:
+    results = {}
+
+    # Open all the JSON files in the directory and yield their contents
+    for file in os.listdir(directory):
+        if file.endswith(".json"):
+            with open(os.path.join(directory, file), "r", encoding="utf-8") as f:
+                for line in f:
+                    result = json.loads(line)
+
+                    rewriter = result["rewriter"]
+                    experiment = result["experiment"]
+                    # Remove the .dataspec and .rec suffix
+                    experiment = os.path.splitext(experiment)[0]
+
+                    if experiment not in results:
+                        results[experiment] = {}
+
+                    if rewriter not in results[experiment]:
+                        results[experiment][rewriter] = {}
+                    
+                    results[experiment][rewriter] = average(result.get("timings", []))
+
+    return results
 
 def create_table(json_path: str) -> None:
-    with open(json_path, "r", encoding="utf-8") as f:
-        lines = [line.strip() for line in f if line.strip()]
+    results = read_results(json_path)
+    # Generate a latex table from the results
+    print("\\documentclass{standalone}")
+    print("\\usepackage{booktabs}")
 
-    results = {}
-    rewriters = set()
+    print("\\begin{document}")
 
-    for line in lines:
-        obj = json.loads(line)
-        rw = obj["rewriter"]
-        bn = obj["benchmark_name"]
-        timings = obj.get("timings", [])
-        rewriters.add(rw)
-        results.setdefault(bn, {})[rw] = average(timings)
+    print("\\begin{tabular}{lrrrr}")
+    print("\\toprule")
+    print("Experiment & Jitty (s) & Jittyc (s) & Innermost (s) & Sabre (s) \\\\")
 
-    rewriters = sorted(rewriters)
+    print("\\midrule")
 
-    # Header
-    first = True
-    for rw in rewriters:
-        if first:
-            print(f"{rw:>30}", end="")
-            first = False
-        else:
-            print(f"{rw:>10} |", end="")
-    print()
+    # Sort the experiments by name
+    for experiment, data in sorted(results.items()):
+        jitty = print_float(data.get("jitty", None))
+        jittyc = print_float(data.get("jittyc", None))
+        innermost = print_float(data.get("innermost", None))
+        sabre = print_float(data.get("sabre", None))
 
-    for bench in sorted(results.keys()):
-        print(f"{bench:>30}", end="")
-        for rw in rewriters:
-            val = results[bench].get(rw)
-            if val is not None:
-                print(f"| {print_float(val):>10}", end="")
-            else:
-                print(f"| {'-':>10}", end="")
-        print()
+        print(f"{experiment} & {jitty} & {jittyc} & {innermost} & {sabre} \\\\")
+
+    print("\\bottomrule")
+    print("\\end{tabular}")
+    print("\\end{document}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog="run.py")
-    parser.add_argument("input", help="Input JSON file")
+    parser.add_argument("input", help="Input JSON directory")
 
     args = parser.parse_args()
 
