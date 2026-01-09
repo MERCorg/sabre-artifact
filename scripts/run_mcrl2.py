@@ -5,16 +5,13 @@ import json
 import os
 import re
 import shutil
-import subprocess
 import sys
 
 from pathlib import Path
-from statistics import mean
 
 # make parent directory importable so we can import MERCpy as a module
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "merc-py"))
 from merc import RunProcess, MercLogger
-
 
 class Rewriter:
     JITTY = "jitty"
@@ -22,6 +19,23 @@ class Rewriter:
 
 
 TIME_REGEX = re.compile(r"rewriting: ([0-9]+) milliseconds.")
+
+
+class ParserOutput:
+    """Callable class that captures stdout and extracts timing information."""
+
+    def __init__(self, logger: MercLogger):
+        self.logger = logger
+        self.timings = []
+
+    def __call__(self, line: str) -> None:
+        """Called for each line of stdout."""
+        self.logger.info(line)
+
+        m = TIME_REGEX.search(line)
+        if m:
+            ms = float(m.group(1))
+            self.timings.append(ms)
 
 
 def benchmark(
@@ -50,8 +64,10 @@ def benchmark(
             }
 
             for _ in range(5):
+                stdout_capture = ParserOutput(logger)
+
                 try:
-                    proc = RunProcess(
+                    RunProcess(
                         mcrl2rewrite_bin,
                         [
                             "-v",
@@ -60,21 +76,15 @@ def benchmark(
                             str(file),
                             str(expressions),
                         ],
-                        read_stdout=logger.info,
+                        read_stdout=stdout_capture,
                         max_time=600,
                     )
                 except Exception as e:
                     logger.error(f"Benchmark {file} timed out or crashed: {e}")
                     break
 
-                output_lines = proc.stdout.splitlines()
-                for line in output_lines:
-                    logger.info(line)
-
-                    m = TIME_REGEX.search(line)
-                    if m:
-                        ms = float(m.group(1))
-                        results["timings"].append(ms)
+                # Extract timings from the capture object instead of proc.stdout
+                results["timings"].extend(stdout_capture.timings)
 
             print(results)
 

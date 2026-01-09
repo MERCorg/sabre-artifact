@@ -20,6 +20,22 @@ class Rewriter:
     INNERMOST = "innermost"
     SABRE = "sabre"
 
+class ParserOutput:
+    """Callable class that captures stdout and extracts timing information."""
+
+    def __init__(self, pattern, logger: MercLogger):
+        self.logger = logger
+        self.timings = []
+        self.pattern = pattern
+
+    def __call__(self, line: str) -> None:
+        """Called for each line of stdout."""
+        self.logger.info(line)
+
+        m = self.pattern.search(line)
+        if m:
+            ms = float(m.group(1))
+            self.timings.append(ms)
 
 def benchmark(
     logger: MercLogger, merc_path: Path, rewriter: str, rec_dir: Path, output_dir: Path
@@ -50,25 +66,20 @@ def benchmark(
             }
 
             for _ in range(5):
+                parser = ParserOutput(pattern, logger)
+
                 try:
-                    proc = RunProcess(
+                    RunProcess(
                         merc_rewrite_bin,
                         ["rewrite", str(rewriter), str(file)],
-                        read_stdout=logger.info,
+                        read_stdout=parser,
                         max_time=600,
                     )
                 except Exception as e:
                     logger.error(f"Benchmark {file} timed out or crashed: {e}")
                     break
 
-                output_lines = proc.stdout.splitlines()
-                for line in output_lines:
-                    logger.info(line)
-
-                    m = pattern.search(line)
-                    if m:
-                        ms = float(m.group(1))
-                        results["timings"].append(ms)
+                results["timings"].extend(parser.timings)
 
             json.dump(results, result_file)
             result_file.write("\n")

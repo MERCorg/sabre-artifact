@@ -3,12 +3,26 @@ import json
 import os
 
 from email import parser
+import re
 
 def average(values):
     return sum(values) / len(values) if values else None
 
 def print_float(value: float|None) -> str:
     return f"{value / 1000.0:.1f}" if value is not None else "-"
+
+def human_sort(text: str) -> list:
+    """
+    Sort key function for sorting strings in human-friendly order.
+    Splits text into alternating strings and integers for natural sorting.
+    """
+    parts = []
+    for part in re.split(r'(\d+)', text):
+        if part.isdigit():
+            parts.append(int(part))
+        else:
+            parts.append(part)
+    return parts
 
 def read_results(directory: str) -> dict[str, dict[str, float]]:
     results = {}

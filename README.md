@@ -25,7 +25,7 @@ docker build . -t sabre_artifact
 Then, run the container, mounting a local `results` directory to store the results:
 
 ```bash
-docker run -it --mount type=bind,source=./results,target=/root/results sabre_artifact
+docker run -it --rm --mount type=bind,source=./results,target=/root/results --mount type=bind,source=./merc/examples/REC,target=/root/REC --mount type=bind,source=./merc-py,target=/root/merc-py  --mount type=bind,source=./scripts,target=/root/scripts sabre_artifact
 ```
 
 ```bash

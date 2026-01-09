@@ -38,12 +38,3 @@ ARG THREADS=8
 ENV PATH="/root/.cargo/bin:${PATH}"
 RUN cd ~/merc/ \
     && cargo build --release -j${THREADS} --bin merc-rewrite
-
-RUN mkdir /root/results/
-
-# Copy the scripts into the container
-COPY ./merc-py /root/merc-py/
-COPY ./scripts /root/scripts/
-
-# Copy the REC specifications, they are already in the container, but this is more convenient
-COPY ./merc/examples/REC/ /root/REC/
