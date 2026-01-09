@@ -6,4 +6,7 @@
 	url = https://github.com/mCRL2org/mCRL2
 [submodule "MERCpy"]
 	path = MERCpy
-	url = https://github.com/MERCorg/MERCpy
+	url = https://github.com/MERCorg/merc-py
+[submodule "merc-py"]
+	path = merc-py
+	url = https://github.com/MERCorg/merc-py
